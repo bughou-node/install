@@ -1,0 +1,36 @@
+#!/bin/bash
+
+
+# 超过3天没更新源
+if test -n "`find /var/lib/apt/periodic/update-success-stamp -mtime +3`"; then
+  sudo apt-get update --fix-missing
+fi
+
+# 安装一些基础包
+which make || sudo apt-get install build-essential -y
+which git  || sudo apt-get install git -y
+which curl || sudo apt-get install curl -y
+
+#dir=`dirname "$1"`
+
+# install nodejs and  common npm
+bash ./environment/install_nodejs
+
+# install nginx
+if ! which nginx; then
+  bash ./environment/install_nginx | tee install.log
+fi
+
+
+#install redis
+which redis-server || sudo apt-get install -y redis-server
+
+#install mongodb
+which mongo || sudo apt-get install mongodb -y
+
+#install msyql server
+if ! which mysqld; then
+  sudo debconf-set-selections <<< "mysql-server-5.6 mysql-server/root_password password root"
+  sudo debconf-set-selections <<< "mysql-server-5.6 mysql-server/root_password_again password root"
+  sudo apt-get install -y mysql-server-5.6
+fi

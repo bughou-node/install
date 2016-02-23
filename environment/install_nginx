@@ -1,0 +1,38 @@
+#!/bin/bash
+
+#ready
+nt=`ping www.baidu.com -c 1 | grep "min/avg/max" -c`
+if [ $nt -ne 1 ];then
+  exit
+fi    
+
+
+#install nginx-gridfs
+install_gridfs(){
+  git clone git://github.com/mdirolf/nginx-gridfs.git
+  cd nginx-gridfs/
+  git clone https://github.com/eagleas/mongo-c-driver.git
+}
+
+#install nginx
+install_nginx(){
+  cd ../
+  sudo apt-get install libpcre3 libpcre3-dev libpcrecpp0 libssl-dev zlib1g-dev -y
+  sudo apt-get install libgd-dev libgd2-xpm-dev -y
+  wget http://nginx.org/download/nginx-1.8.0.tar.gz
+  tar zxf nginx-1.8.0.tar.gz
+  cd nginx-1.8.0
+  sudo ./configure --add-module=../nginx-gridfs/ --with-cc-opt=-Wno-error --with-http_ssl_module --with-http_image_filter_module --with-http_stub_status_module
+  sudo make && sudo make install
+  sudo mkdir -p /usr/local/nginx/logs
+  sudo mkdir -p /var/log/nginx
+  sudo mkdir -p /var/log/nginx/conf/sites-enabled
+  sudo ln -s /usr/local/nginx/sbin/nginx /sbin/nginx
+  sudo rm /usr/local/nginx/conf/nginx.conf
+  sudo cp ./nginx.conf /usr/local/nginx/conf -rf
+  sudo nginx
+  cd ../ && sudo rm -rf nginx-gridfs/ && rm -rf ../nginx-1.8.0
+}
+
+#remove and install
+which nginx || (install_gridfs && install_nginx)

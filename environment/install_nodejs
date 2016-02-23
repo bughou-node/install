@@ -1,0 +1,28 @@
+#!/bin/bash
+
+dir=`dirname "$0"`
+
+which node || sudo tar -zxf "$dir/node-v0.12.3-linux-x64.tar.gz" -C /usr/local --strip-components=1 || exit
+
+which nodemon || sudo npm install -g nodemon
+
+which eslint || sudo npm install -g eslint
+
+which mocha || sudo npm install -g mocha
+
+which sequelize || sudo npm install -g sequelize-cli
+
+which browserify || sudo npm install -g browserify
+
+which exorcist || sudo npm install -g exorcist
+
+which lessc || sudo npm install -g less
+
+which pm2 || sudo npm install -g pm2
+
+which supervisor || sudo npm install -g supervisor
+
+which pkg-config > /dev/null || sudo apt-get install pkg-config
+
+test -f /usr/local/lib/libvips.so.42 || \
+  curl -s https://raw.githubusercontent.com/lovell/sharp/master/preinstall.sh | sudo bash -

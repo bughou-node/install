@@ -1,0 +1,139 @@
+#!/bin/bash
+
+# change the config as you like
+########### config begin ############
+
+# replica set name 
+replset_name='loan'
+
+# replica set members
+declare -a replset_members=(127.0.0.1:27018 127.0.0.1:27019 127.0.0.1:27020)
+
+# ssh user to login replica set member servers
+ssh_user=developer
+
+########### config end ##############
+
+
+
+start_replica_set()
+{
+  local addr
+  for addr in "${replset_members[@]}"; do
+    start_replset_member "$addr"
+  done
+  replica_set_initiate
+}
+
+replica_set_initiate(){
+  echo -n "initiate replica set $replset_name "
+  if local output=`mongo "${replset_members[0]}" --eval "printjson(rs.status())"`; then
+    if echo "$output" | fgrep '"ok" : 1' > /dev/null; then 
+      echo aready initiated.
+    else
+      local config="{ _id: '$replset_name', members: [ `replica_set_members_config` ] }"
+      local output=`mongo "${replset_members[0]}" --eval "printjson(rs.initiate($config))"` &&
+        echo "$output" | fgrep '"ok" : 1' > /dev/null &&
+        echo ok. || echo -e "failed.\n$output\n"
+    fi
+  else
+    echo -e "failed.\n$output\n"
+  fi
+}
+
+replica_set_members_config()
+{
+  local i members
+  for i in "${!replset_members[@]}"; do
+    test -z "$members" || members+=', '
+    members+="{ _id: $i, host: '${replset_members[$i]}' }"
+  done
+  echo "$members"
+}
+
+start_replset_member()
+{
+  local ip=${1%:*}
+  echo -n "start $1 "
+  if is_localhost "$ip"; then
+    start_replset_member_locally "$1"
+  else
+    start_replset_member_remotely "$1"
+  fi
+}
+
+start_replset_member_remotely()
+{
+  local target="/home/$ssh_user/.`basename $0`"
+  local output=`scp "$0" $ssh_user@$ip:$target` &&
+  output+=`ssh $ssh_user@$ip "bash $target '$1'"` || 
+  echo -e "failed.\n$output\n"
+}
+
+start_replset_member_locally()
+{
+  local ip=${1%:*}
+  local port=${1#*:}
+  local data_dir=`make_data_dir "$1"`
+  pid="$data_dir/mongod.lock"
+  if test -s "$pid" && ps `cat "$pid"` > /dev/null; then
+    echo aready started.
+  else
+    local output=`sudo -u mongodb mongod --replSet "$replset_name" --port "$port"\
+      --dbpath "$data_dir" --logappend --logpath="$data_dir/mongodb.log"\
+      --fork --smallfiles --oplogSize 10`  &&
+      echo ok. || echo -e "failed.\n$output\n"
+  fi
+}
+
+
+make_data_dir()
+{
+  local base_dir='/data/mongodb'
+  if test ! -d "$base_dir" ; then
+    sudo mkdir -p "$base_dir"
+    sudo chown -R mongodb:mongodb "$base_dir"
+  fi
+
+  local data_dir="$base_dir/$replset_name:$1"
+  test -d "$data_dir" || sudo -u mongodb mkdir "$data_dir"
+
+  echo "$data_dir"
+}
+
+is_ip_port()
+{
+  local ip=${1%:*}
+  local port=${1#*:}
+  local ip_reg='^([[:digit:]]{1,3}\.){4}$'
+  local port_reg='^[[:digit:]]{5}$'
+  [[ "$ip." =~ $ip_reg && "$port" =~ $port_reg ]]
+}
+
+is_localhost()
+{
+  [[ $1 =~ ^127(\.[[:digit:]]){3}$ ]] || ifconfig | fgrep " inet addr:$1" > /dev/null
+}
+
+
+print_usage()
+{
+  echo "usage:
+  1. to start entrie replica set, run
+  bash $0 
+
+  2. to start a replica set member, run
+  bash $0 <ip>:<port>
+  example:
+  bash $0 ${replset_members[0]}
+  "
+}
+
+if [[ $# -eq 0 ]]; then
+  start_replica_set
+elif test $# -eq 1 && is_ip_port "$1"; then
+  start_replset_member "$1"
+else
+  print_usage
+fi
+

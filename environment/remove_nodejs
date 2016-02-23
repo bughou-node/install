@@ -1,0 +1,6 @@
+#!/bin/bash
+
+sudo rm -f  /usr/local/bin/{express,mocha,_mocha,node,nodemon,npm}
+sudo rm -rf /usr/local/include/node /usr/local/lib/node_modules
+sudo rm -f  /usr/local/man/man?/{node.?,npm.?,npmrc.?,npm-*.?,package.json.5,removing-npm.7,semver.7}
+
